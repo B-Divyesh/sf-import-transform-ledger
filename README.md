@@ -59,11 +59,12 @@ worker expects the app at the origin root.
 
 The production API origin defaults to `https://api.sociobot.in`. Checkout is
 fail-closed: ordinary builds show that purchases are not open and render no buy
-link. Only after the factory confirms that the slug is registered and its
-checkout responds successfully should it build with
+link or license-verification control. Only after the factory confirms that the
+slug is registered and its checkout responds successfully should it build with
 `VITE_BILLING_ENABLED=true`. Use `VITE_BILLING_BASE` only to target an approved
-alternate Sociobot environment. No numeric product ID or payment secret belongs
-in this repository.
+alternate Sociobot environment. Enabled builds serialize verification attempts,
+enforce a 30-second device cooldown, and honor longer API `Retry-After`
+responses. No numeric product ID or payment secret belongs in this repository.
 
 ## Privacy and architecture
 

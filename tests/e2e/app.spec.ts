@@ -64,6 +64,7 @@ test("rejects corrupt recipes and CSV rows with unaccounted cells", async ({ pag
 });
 
 test("restores the local workspace and works offline", async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Try the example" }).click();
   await expect(page.getByText(/Example loaded/)).toBeVisible();
@@ -73,7 +74,11 @@ test("restores the local workspace and works offline", async ({ page, context })
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Make every CSV import explain itself." })).toBeVisible();
-  await expect(page.getByText(/Offline · all local tools available/)).toBeVisible();
+  await expect(page.getByText("Offline · tools ready", { exact: true })).toBeVisible();
+  const status = page.locator(".status-ribbon");
+  await expect(status).toContainText("You are offline. The workspace, recipes, transforms, and exports remain available.");
+  await expect(status).toBeVisible();
+  await expect(page.locator("html")).toHaveJSProperty("clientWidth", 390);
 });
 
 test("announces and applies a service-worker update, then remains offline", async ({ page, context }) => {
@@ -118,10 +123,18 @@ test("stacks key controls at a 390px mobile viewport", async ({ page }) => {
 });
 
 test("does not advertise checkout until the billing product is registered", async ({ page }) => {
-  await page.goto("/");
+  const externalRequests: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).origin !== "http://127.0.0.1:4173") externalRequests.push(request.url());
+  });
+  await page.goto("/?license=should-not-leave-this-device");
   await expect(page.getByRole("link", { name: /Buy Field Kit/ })).toHaveCount(0);
+  await expect(page.locator("#license-token")).toHaveCount(0);
   await expect(page.getByText("Purchases are not open.")).toBeVisible();
   await expect(page.getByText(/no checkout is currently offered/i)).toBeVisible();
+  expect(page.url()).not.toContain("license=");
+  expect(await page.evaluate(() => localStorage.getItem("sb_license:import-transform-ledger"))).toBeNull();
+  expect(externalRequests).toEqual([]);
 });
 
 test("has no serious or critical accessibility violations", async ({ page }) => {

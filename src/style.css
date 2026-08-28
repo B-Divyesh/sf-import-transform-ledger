@@ -43,6 +43,8 @@ input[type="checkbox"] { width: 20px; min-height: 20px; accent-color: var(--lapi
 .site-header nav a { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
 .local-mark { display: flex; align-items: center; gap: 7px; color: var(--quiet); }
 .local-mark i { width: 8px; height: 8px; border-radius: 50%; background: var(--moss); }
+.local-mark-offline { color: var(--ink); }
+.local-mark-offline i { background: var(--mustard); }
 main { min-height: 75vh; }
 .hero { display: grid; grid-template-columns: minmax(320px, .88fr) minmax(420px, 1.12fr); align-items: center; gap: clamp(32px, 6vw, 100px); max-width: 1440px; margin: 0 auto; padding: clamp(48px, 7vw, 104px) clamp(20px, 4vw, 64px) clamp(56px, 8vw, 112px); }
 .hero-copy { max-width: 650px; }

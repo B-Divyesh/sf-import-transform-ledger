@@ -4,6 +4,13 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 const assetNames = (await readdir(new URL("../dist/assets/", import.meta.url)))
   .sort()
   .map((name) => `/assets/${name}`);
+if (process.env.VITE_BILLING_ENABLED !== "true") {
+  const scripts = await Promise.all(assetNames.filter((name) => name.endsWith(".js")).map((name) => readFile(new URL(`../dist${name}`, import.meta.url), "utf8")));
+  const closedBuild = scripts.join("\n");
+  for (const forbidden of ["api.sociobot.in", "/verify?license=", "license-token"]) {
+    if (closedBuild.includes(forbidden)) throw new Error(`Closed-billing build unexpectedly exposes ${forbidden}`);
+  }
+}
 const shellFiles = ["index.html", "offline.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "privacy/index.html", "terms/index.html"];
 const shellBytes = await Promise.all([
   ...assetNames.map((name) => readFile(new URL(`../dist${name}`, import.meta.url))),

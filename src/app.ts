@@ -24,6 +24,7 @@ import {
   saveRun,
   saveWorkspace,
 } from "./db";
+import { LICENSE_VERIFY_COOLDOWN_MS, retryAfterMs, verificationDelayMs, waitMessage } from "./license";
 
 const PRODUCT = "import-transform-ledger";
 const BILLING_BASE = import.meta.env.VITE_BILLING_BASE || "https://api.sociobot.in";
@@ -32,7 +33,10 @@ const BILLING_BASE = import.meta.env.VITE_BILLING_BASE || "https://api.sociobot.
 const BILLING_ENABLED = import.meta.env.VITE_BILLING_ENABLED === "true";
 const LICENSE_KEY = `sb_license:${PRODUCT}`;
 const VERDICT_KEY = `${LICENSE_KEY}:verdict`;
+const VERIFY_ATTEMPT_KEY = `${LICENSE_KEY}:verify-attempt`;
+const OFFLINE_MESSAGE = "You are offline. The workspace, recipes, transforms, and exports remain available.";
 const app = document.querySelector<HTMLDivElement>("#app")!;
+let verificationInFlight = false;
 
 interface State {
   source: DataSet | null;
@@ -61,10 +65,10 @@ const state: State = {
   recipes: [],
   stage: 1,
   encoding: "auto",
-  message: "Ready. Files stay on this device.",
+  message: navigator.onLine ? "Ready. Files stay on this device." : OFFLINE_MESSAGE,
   error: "",
   online: navigator.onLine,
-  licenseActive: cachedLicenseActive(),
+  licenseActive: BILLING_ENABLED && cachedLicenseActive(),
   licenseNotice: "",
 };
 
@@ -126,7 +130,7 @@ function render(): void {
         <span>Import Transform Ledger</span>
       </a>
       <nav aria-label="Utility navigation">
-        <span class="local-mark"><i aria-hidden="true"></i> Runs locally</span>
+        <span class="local-mark ${state.online ? "" : "local-mark-offline"}"><i aria-hidden="true"></i> ${state.online ? "Runs locally" : "Offline · tools ready"}</span>
         <a href="/privacy/">Privacy</a>
         <a href="/terms/">Terms</a>
       </nav>
@@ -150,7 +154,7 @@ function render(): void {
         </picture>
       </section>
 
-      <div class="status-ribbon ${state.error ? "status-error" : ""}" role="status" aria-live="polite">
+      <div class="status-ribbon ${state.error ? "status-error" : ""} ${state.online ? "status-online" : "status-offline"}" role="status" aria-live="polite">
         <span aria-hidden="true">${state.error ? "!" : state.online ? "●" : "↯"}</span>
         ${escapeHTML(state.error || state.message)}
         <span class="network-state">${state.online ? "Online · offline-ready" : "Offline · all local tools available"}</span>
@@ -302,7 +306,7 @@ function exportStageHTML(result: ProcessResult): string {
 function licenseHTML(): string {
   return `<section class="license-section" aria-labelledby="license-title"><div><p class="eyebrow">${BILLING_ENABLED ? "One-time field kit" : "Local recipe library"}</p><h2 id="license-title">Carry a bigger recipe book.</h2><p>${BILLING_ENABLED ? `The complete transform, review, and export workflow is free. A <strong>$29 one-time purchase</strong> unlocks an unlimited saved recipe library on this device.` : "The complete transform, review, and export workflow is free. Field Kit purchases are not open yet; one local recipe slot plus unlimited JSON recipe exports and imports remain available."}</p><ul><li>No subscription</li><li>No cloud data upload</li><li>Portable recipe JSON stays free</li></ul></div><div class="license-card">
     ${state.licenseActive ? `<p class="license-active"><span aria-hidden="true">✓</span><strong>Field Kit active</strong></p><p>Your saved recipe library is unlimited.</p>` : BILLING_ENABLED ? `<a class="primary buy-link" href="${BILLING_BASE}/api/v1/products/${PRODUCT}/checkout">Buy Field Kit · $29 once</a><p class="hint">Secure hosted checkout. Sociobot / Dodo is the merchant of record.</p>` : `<p class="license-notice"><strong>Purchases are not open.</strong><br />Keep using the complete free workflow; no checkout is currently offered.</p>`}
-    <label for="license-token">Have a license? Paste it here</label><div class="inline-form"><input id="license-token" type="password" autocomplete="off" /><button data-action="restore-license">Verify</button></div>
+    ${BILLING_ENABLED ? `<label for="license-token">Have a license? Paste it here</label><div class="inline-form"><input id="license-token" type="password" autocomplete="off" /><button data-action="restore-license" ${verificationInFlight ? "disabled" : ""}>${verificationInFlight ? "Verifying…" : "Verify"}</button></div>` : ""}
     ${state.licenseNotice ? `<p class="license-notice" role="status">${escapeHTML(state.licenseNotice)}</p>` : ""}
     <p class="legal-note">${BILLING_ENABLED ? `Purchase subject to our <a href="/terms/">terms</a> and <a href="/privacy/">privacy policy</a>. Refunds are handled by the merchant of record.` : `See our <a href="/terms/">terms</a> and <a href="/privacy/">privacy policy</a>.`}</p>
   </div></section>`;
@@ -508,6 +512,7 @@ function scrollToWorkbench(): void {
 }
 
 async function restoreLicense(): Promise<void> {
+  if (!BILLING_ENABLED || verificationInFlight) return;
   const token = document.querySelector<HTMLInputElement>("#license-token")?.value.trim();
   if (!token) { state.licenseNotice = "Paste the license token from your purchase email."; render(); return; }
   localStorage.setItem(LICENSE_KEY, token);
@@ -515,12 +520,26 @@ async function restoreLicense(): Promise<void> {
 }
 
 async function verifyLicense(force = false): Promise<void> {
+  if (!BILLING_ENABLED || verificationInFlight) return;
   const token = localStorage.getItem(LICENSE_KEY);
   if (!token) return;
+  let cached: { valid: boolean; checkedAt: number } | null = null;
+  try { cached = JSON.parse(localStorage.getItem(VERDICT_KEY) ?? "null") as { valid: boolean; checkedAt: number } | null; }
+  catch { localStorage.removeItem(VERDICT_KEY); }
+  if (!force && cached && Date.now() - cached.checkedAt < 86_400_000) { state.licenseActive = cached.valid; return; }
+  const now = Date.now();
+  const delay = verificationDelayMs(Number(localStorage.getItem(VERIFY_ATTEMPT_KEY)), now);
+  if (delay > 0) { state.licenseNotice = waitMessage(delay); render(); return; }
+  localStorage.setItem(VERIFY_ATTEMPT_KEY, String(now));
+  verificationInFlight = true; render();
   try {
-    const cached = JSON.parse(localStorage.getItem(VERDICT_KEY) ?? "null") as { valid: boolean; checkedAt: number } | null;
-    if (!force && cached && Date.now() - cached.checkedAt < 86_400_000) { state.licenseActive = cached.valid; return; }
     const response = await fetch(`${BILLING_BASE}/api/v1/products/${PRODUCT}/verify?license=${encodeURIComponent(token)}`);
+    if (response.status === 429) {
+      const delay = retryAfterMs(response.headers.get("Retry-After"));
+      localStorage.setItem(VERIFY_ATTEMPT_KEY, String(Date.now() + delay - LICENSE_VERIFY_COOLDOWN_MS));
+      state.licenseNotice = waitMessage(delay);
+      return;
+    }
     if (!response.ok) throw new Error("Verification service unavailable");
     const verdict = await response.json() as { valid: boolean; reason: string };
     localStorage.setItem(VERDICT_KEY, JSON.stringify({ valid: verdict.valid, reason: verdict.reason, checkedAt: Date.now() }));
@@ -529,17 +548,21 @@ async function verifyLicense(force = false): Promise<void> {
     render();
   } catch {
     state.licenseNotice = state.licenseActive ? "Offline: using the last valid license check." : "Could not verify right now. Check your connection and try again; the free workflow remains available.";
+  } finally {
+    verificationInFlight = false;
     render();
   }
 }
 
 async function bootstrap(): Promise<void> {
   const license = new URL(location.href).searchParams.get("license");
-  if (license) {
+  if (license && BILLING_ENABLED) {
     localStorage.setItem(LICENSE_KEY, license);
     state.licenseActive = true;
     const clean = new URL(location.href); clean.searchParams.delete("license"); history.replaceState({}, "", clean);
     state.licenseNotice = "Purchase received. Verifying your license…";
+  } else if (license) {
+    const clean = new URL(location.href); clean.searchParams.delete("license"); history.replaceState({}, "", clean);
   }
   render();
   try {
@@ -552,8 +575,9 @@ async function bootstrap(): Promise<void> {
   } catch {
     state.message = "Local storage is unavailable. Export the recipe before closing this tab.";
   }
+  if (!state.online) state.message = OFFLINE_MESSAGE;
   render();
-  verifyLicense(Boolean(license));
+  if (BILLING_ENABLED) verifyLicense(Boolean(license));
   registerServiceWorker();
 }
 
@@ -575,6 +599,6 @@ function registerServiceWorker(): void {
 }
 
 window.addEventListener("online", () => { state.online = true; state.message = "Back online. Local work was uninterrupted."; render(); });
-window.addEventListener("offline", () => { state.online = false; state.message = "You are offline. The workspace, recipes, transforms, and exports remain available."; render(); });
+window.addEventListener("offline", () => { state.online = false; state.message = OFFLINE_MESSAGE; render(); });
 
 bootstrap();

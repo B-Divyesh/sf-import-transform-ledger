@@ -12,6 +12,7 @@ import {
   type FieldMapping,
   type Recipe,
 } from "../src/core";
+import { LICENSE_VERIFY_COOLDOWN_MS, retryAfterMs, verificationDelayMs, waitMessage } from "../src/license";
 
 const baseMapping: FieldMapping = {
   target: "value",
@@ -131,5 +132,27 @@ describe("portable artifacts", () => {
     expect(() => validateRecipe({ ...recipe, mappings: [{ ...recipe.mappings[0], target: "wrong" }] })).toThrow(/undeclared target header/);
     expect(() => validateRecipe({ ...recipe, mappings: [{ ...recipe.mappings[0], transform: "bogus" }] })).toThrow(/unsupported transform/);
     expect(() => validateRecipe({ ...recipe, dedupeKeys: ["missing"] })).toThrow(/not a target header/);
+  });
+});
+
+describe("license verification request policy", () => {
+  it("admits one attempt and locally throttles the remaining 79-request burst", () => {
+    const now = Date.parse("2026-08-28T07:00:00.000Z");
+    let lastAttemptAt = 0;
+    const admitted = Array.from({ length: 80 }, () => {
+      if (verificationDelayMs(lastAttemptAt, now) > 0) return false;
+      lastAttemptAt = now;
+      return true;
+    });
+    expect(admitted.filter(Boolean)).toHaveLength(1);
+    expect(verificationDelayMs(lastAttemptAt, now)).toBe(LICENSE_VERIFY_COOLDOWN_MS);
+    expect(waitMessage(2_001)).toBe("Please wait 3 seconds before verifying another license.");
+  });
+
+  it("honors numeric and HTTP-date Retry-After values", () => {
+    const now = Date.parse("2026-08-28T07:00:00.000Z");
+    expect(retryAfterMs("45", now)).toBe(45_000);
+    expect(retryAfterMs("Fri, 28 Aug 2026 07:01:00 GMT", now)).toBe(60_000);
+    expect(retryAfterMs(null, now)).toBe(LICENSE_VERIFY_COOLDOWN_MS);
   });
 });

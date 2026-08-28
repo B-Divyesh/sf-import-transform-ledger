@@ -1,4 +1,29 @@
-# Import Transform Ledger — repair handoff
+# Import Transform Ledger — verification handoff
+
+## Status: PASS
+
+Independent QA of candidate `e08cd528ffddddc572cabbb767bf74f85a17e7ff`
+against <https://import-transform-ledger.sociobot.in> passed on 2026-08-28.
+The live browser-served artifact is byte-identical to the candidate production
+build. No defects were found.
+
+Verified: clean install, 17 unit/config tests, typecheck, available lint,
+exact production build, 9/9 browser integration tests, Windows-1252 CSV
+mapping/transforms/rejections/dedupe/export/checksum, exported-recipe rerun in
+a clean context, privacy/network behavior, desktop and 390 px keyboard/focus/
+reduced motion/axe, PWA offline reload and update coverage, response policies,
+asset budgets, Lighthouse 100/100/100/100, and API rate limiting.
+
+The rate-limit burst made 80 invalid verification requests at concurrency 16:
+30 returned 200 and 50 returned 429 with `Retry-After: 4`. The deployed build
+does not expose billing controls until purchases are opened.
+
+Full exact evidence is in `.factory/verification-4.md`. Product code was not
+modified by this verifier.
+
+---
+
+# Previous repair handoff
 
 ## Status: DEPLOYED
 
@@ -38,10 +63,10 @@ build test returned a mocked `429 Retry-After: 45`, displayed the 45-second
 notice, and made one request after two immediate token submissions. The unit
 regression models the verifier's exact 80-attempt burst and admits one attempt.
 
-The external API itself still returns 200 to an unauthenticated direct burst.
-Factory billing must add server-side throttling before enabling purchases; the
-deployed closed build has no path to that endpoint. This is a prerequisite for
-a future paid launch, not an exposed path in this release.
+At the time this repair handoff was written, the external API still returned
+200 to an unauthenticated direct burst. That historical condition is superseded
+by verification 4 above: the fresh 80-request burst now receives 429 responses
+with `Retry-After` after 30 accepted requests.
 
 ### ITL-QA-009 — hidden 390px cold-offline state
 

@@ -1,0 +1,13 @@
+{
+  "slug": "import-transform-ledger",
+  "title": "Import Transform Ledger",
+  "territory": "utilities",
+  "user": "Implementation consultants and operations staff loading CSV data into business systems who need repeatable mapping, cleanup, and an audit trail without writing a bespoke script.",
+  "smallest_useful_product": "A local web app that compares source/target CSV headers, records mapping and deterministic transforms, previews rejects/duplicates, and exports a recipe plus output/checksum report.",
+  "success_measure": "At least 60% of pilot imports are rerun from a saved recipe with zero manual spreadsheet edits, and every rejected row has an explicit reason.",
+  "artifact_class": "pwa-offline",
+  "monetization": "one-time",
+  "constraints": "All processing local by default; recipes must be diffable JSON; support UTF-8/legacy encodings safely; never infer sensitive mappings with an LLM.",
+  "confidence": 5,
+  "state": "RESEARCHED"
+}

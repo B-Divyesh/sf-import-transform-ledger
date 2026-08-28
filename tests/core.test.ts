@@ -46,6 +46,11 @@ describe("CSV parsing", () => {
   it("reports duplicate headers", () => {
     expect(() => createDataSet("id,id\n1,2")).toThrow(/appears more than once/);
   });
+
+  it("rejects over-wide and under-wide rows instead of dropping cells", () => {
+    expect(() => createDataSet("id,name\n1,A,UNACCOUNTED\n2,B")).toThrow(/Source row 2 has 3 fields.*header has 2.*no cells are lost/);
+    expect(() => createDataSet("id,name\n1\n2,B")).toThrow(/Source row 2 has 1 fields.*header has 2/);
+  });
 });
 
 describe("deterministic transforms", () => {
@@ -83,6 +88,22 @@ describe("processing ledger", () => {
     expect(result.rejected[1]?.reasons[0]).toMatch(/start_date/);
     expect(result.duplicates).toBe(1);
   });
+
+  it("lets a valid row claim a key after an invalid row with the same key", () => {
+    const rows = [
+      { id: "A", date: "31/02/2024" },
+      { id: "A", date: "29/02/2024" },
+    ];
+    const mappings: FieldMapping[] = [
+      { ...baseMapping, target: "id", source: "id", required: true },
+      { ...baseMapping, target: "date", source: "date", transform: "date-dmy", required: true },
+    ];
+    const result = processRows(rows, mappings, ["id"]);
+    expect(result.accepted).toEqual([{ id: "A", date: "2024-02-29" }]);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.rejected[0]).toMatchObject({ sourceRow: 2, duplicate: false });
+    expect(result.duplicates).toBe(0);
+  });
 });
 
 describe("portable artifacts", () => {
@@ -100,5 +121,15 @@ describe("portable artifacts", () => {
     expect(json).toContain('\n  "mappings"');
     expect(validateRecipe(JSON.parse(json))).toEqual(recipe);
     expect(() => validateRecipe({ version: 2 })).toThrow(/not a supported/);
+  });
+
+  it("rejects recipes with undeclared targets, unsupported transforms, or invalid dedupe keys", () => {
+    const recipe: Recipe = {
+      schema: "import-transform-ledger/recipe", version: 1, name: "Corrupt", createdAt: "2026-01-01T00:00:00.000Z",
+      sourceHeaders: ["id"], targetHeaders: ["id"], mappings: initialMappings(["id"], ["id"]), dedupeKeys: [],
+    };
+    expect(() => validateRecipe({ ...recipe, mappings: [{ ...recipe.mappings[0], target: "wrong" }] })).toThrow(/undeclared target header/);
+    expect(() => validateRecipe({ ...recipe, mappings: [{ ...recipe.mappings[0], transform: "bogus" }] })).toThrow(/unsupported transform/);
+    expect(() => validateRecipe({ ...recipe, dedupeKeys: ["missing"] })).toThrow(/not a target header/);
   });
 });

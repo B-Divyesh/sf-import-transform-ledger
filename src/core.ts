@@ -45,6 +45,7 @@ export interface ProcessResult {
 }
 
 const delimiters = [",", ";", "\t"];
+const transformKinds: TransformKind[] = ["none", "trim", "upper", "lower", "date-dmy", "date-mdy", "number", "replace"];
 
 export function decodeBuffer(buffer: ArrayBuffer, encoding: Encoding): { text: string; encoding: string } {
   if (encoding !== "auto") {
@@ -111,6 +112,12 @@ export function createDataSet(text: string, fileName = "source.csv", encoding = 
   const duplicate = headers.find((header, index) => headers.indexOf(header) !== index);
   if (duplicate) throw new Error(`The header “${duplicate}” appears more than once. Rename duplicate columns before continuing.`);
   if (headers.length < 1) throw new Error("No columns were found in the header row.");
+  const widthMismatch = matrix.slice(1).findIndex((values) => values.length !== headers.length);
+  if (widthMismatch !== -1) {
+    const sourceRow = widthMismatch + 2;
+    const fields = matrix[sourceRow - 1]?.length ?? 0;
+    throw new Error(`Source row ${sourceRow} has ${fields} fields, but the header has ${headers.length}. Fix the row-width mismatch before continuing so no cells are lost.`);
+  }
   const rows = matrix.slice(1).map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""])));
   return { fileName, encoding, headers, rows };
 }
@@ -183,7 +190,10 @@ export function processRows(rows: Record<string, string>[], mappings: FieldMappi
       if (result.error) reasons.push(result.error);
     });
     let duplicate = false;
-    if (dedupeKeys.length > 0) {
+    // Only rows that have passed every transform and required-field rule may
+    // claim a key. An invalid row must never cause the only valid occurrence
+    // of a business record to be rejected.
+    if (reasons.length === 0 && dedupeKeys.length > 0) {
       const key = dedupeKeys.map((field) => output[field] ?? "").join("\u001f");
       if (key.replaceAll("\u001f", "") !== "") {
         const first = seen.get(key);
@@ -214,11 +224,64 @@ export function recipeJSON(recipe: Recipe): string {
 
 export function validateRecipe(value: unknown): Recipe {
   if (!value || typeof value !== "object") throw new Error("Recipe must be a JSON object.");
-  const item = value as Partial<Recipe>;
-  if (item.schema !== "import-transform-ledger/recipe" || item.version !== 1 || !Array.isArray(item.mappings) || !Array.isArray(item.targetHeaders)) {
+  const item = value as Record<string, unknown>;
+  if (item.schema !== "import-transform-ledger/recipe" || item.version !== 1) {
     throw new Error("This is not a supported Import Transform Ledger recipe (version 1).");
   }
-  return item as Recipe;
+  if (typeof item.name !== "string" || !item.name.trim()) throw new Error("Recipe name must be a non-empty string.");
+  if (typeof item.createdAt !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(item.createdAt) || Number.isNaN(Date.parse(item.createdAt))) {
+    throw new Error("Recipe createdAt must be a valid ISO date and time.");
+  }
+  const sourceHeaders = validateUniqueStrings(item.sourceHeaders, "sourceHeaders", false);
+  const targetHeaders = validateUniqueStrings(item.targetHeaders, "targetHeaders", false);
+  if (!Array.isArray(item.mappings)) throw new Error("Recipe mappings must be an array.");
+  if (item.mappings.length !== targetHeaders.length) throw new Error("Recipe mappings must contain exactly one mapping for every target header.");
+
+  const mappings = item.mappings.map((raw, index) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error(`Recipe mapping ${index + 1} must be an object.`);
+    const mapping = raw as Record<string, unknown>;
+    if (typeof mapping.target !== "string" || !targetHeaders.includes(mapping.target)) {
+      throw new Error(`Recipe mapping ${index + 1} targets an undeclared target header.`);
+    }
+    if (mapping.source !== null && (typeof mapping.source !== "string" || !sourceHeaders.includes(mapping.source))) {
+      throw new Error(`Recipe mapping for “${mapping.target}” references an undeclared source header.`);
+    }
+    if (typeof mapping.transform !== "string" || !transformKinds.includes(mapping.transform as TransformKind)) {
+      throw new Error(`Recipe mapping for “${mapping.target}” uses an unsupported transform.`);
+    }
+    if (typeof mapping.required !== "boolean" || typeof mapping.defaultValue !== "string" || typeof mapping.find !== "string" || typeof mapping.replace !== "string") {
+      throw new Error(`Recipe mapping for “${mapping.target}” has invalid rule fields.`);
+    }
+    return mapping as unknown as FieldMapping;
+  });
+  const mappedTargets = mappings.map((mapping) => mapping.target);
+  if (new Set(mappedTargets).size !== mappedTargets.length || targetHeaders.some((header) => !mappedTargets.includes(header))) {
+    throw new Error("Recipe mappings must cover each target header exactly once.");
+  }
+  const dedupeKeys = validateUniqueStrings(item.dedupeKeys, "dedupeKeys", true);
+  const unknownKey = dedupeKeys.find((key) => !targetHeaders.includes(key));
+  if (unknownKey) throw new Error(`Recipe dedupe key “${unknownKey}” is not a target header.`);
+
+  return {
+    schema: "import-transform-ledger/recipe",
+    version: 1,
+    name: item.name,
+    createdAt: item.createdAt,
+    sourceHeaders,
+    targetHeaders,
+    mappings,
+    dedupeKeys,
+  };
+}
+
+function validateUniqueStrings(value: unknown, field: string, allowEmpty: boolean): string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) {
+    throw new Error(`Recipe ${field} must be an array of non-empty strings.`);
+  }
+  if (!allowEmpty && value.length === 0) throw new Error(`Recipe ${field} must not be empty.`);
+  const strings = value as string[];
+  if (new Set(strings).size !== strings.length) throw new Error(`Recipe ${field} must not contain duplicates.`);
+  return strings;
 }
 
 export async function sha256(text: string): Promise<string> {

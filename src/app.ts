@@ -26,7 +26,10 @@ import {
 } from "./db";
 
 const PRODUCT = "import-transform-ledger";
-const BILLING_BASE = import.meta.env.VITE_BILLING_BASE || "https://pilot-api.sociobot.in";
+const BILLING_BASE = import.meta.env.VITE_BILLING_BASE || "https://api.sociobot.in";
+// Checkout must only be advertised after the factory has registered and
+// enabled this slug in the production billing catalog.
+const BILLING_ENABLED = import.meta.env.VITE_BILLING_ENABLED === "true";
 const LICENSE_KEY = `sb_license:${PRODUCT}`;
 const VERDICT_KEY = `${LICENSE_KEY}:verdict`;
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -37,6 +40,7 @@ interface State {
   mappings: FieldMapping[];
   dedupeKeys: string[];
   recipeName: string;
+  recipeCreatedAt: string;
   recipes: Recipe[];
   stage: number;
   encoding: Encoding;
@@ -53,6 +57,7 @@ const state: State = {
   mappings: [],
   dedupeKeys: [],
   recipeName: "Untitled import",
+  recipeCreatedAt: new Date().toISOString(),
   recipes: [],
   stage: 1,
   encoding: "auto",
@@ -103,7 +108,7 @@ function recipeFromState(): Recipe {
     schema: "import-transform-ledger/recipe",
     version: 1,
     name: state.recipeName.trim() || "Untitled import",
-    createdAt: new Date().toISOString(),
+    createdAt: state.recipeCreatedAt,
     sourceHeaders: state.source?.headers ?? state.mappings.flatMap((mapping) => mapping.source ? [mapping.source] : []),
     targetHeaders: state.targetHeaders,
     mappings: state.mappings,
@@ -126,7 +131,7 @@ function render(): void {
         <a href="/terms/">Terms</a>
       </nav>
     </header>
-    <main id="main">
+    <main id="main" tabindex="-1">
       <section class="hero ${state.source ? "hero-compact" : ""}" aria-labelledby="page-title">
         <div class="hero-copy">
           <p class="eyebrow">A private customs desk for unruly data</p>
@@ -139,9 +144,9 @@ function render(): void {
             </div>`}
         </div>
         <picture class="hero-art">
-          <source type="image/avif" srcset="/assets/hero-customs-desk-768.avif 768w, /assets/hero-customs-desk-1536.avif 1536w" sizes="(max-width: 760px) 100vw, 52vw" />
-          <source type="image/webp" srcset="/assets/hero-customs-desk-768.webp 768w, /assets/hero-customs-desk-1536.webp 1536w" sizes="(max-width: 760px) 100vw, 52vw" />
-          <img src="/assets/hero-customs-desk-768.jpg" alt="Paper records crossing three measuring gates and arriving as an approved ledger" width="768" height="512" decoding="async" fetchpriority="high" />
+          <source type="image/avif" srcset="/assets/hero-customs-desk-768.1346799d.avif 768w, /assets/hero-customs-desk-1536.b13e4f66.avif 1536w" sizes="(max-width: 760px) 100vw, 52vw" />
+          <source type="image/webp" srcset="/assets/hero-customs-desk-768.f2566ce3.webp 768w, /assets/hero-customs-desk-1536.3aaf8276.webp 1536w" sizes="(max-width: 760px) 100vw, 52vw" />
+          <img src="/assets/hero-customs-desk-768.9c7d3103.jpg" alt="Paper records crossing three measuring gates and arriving as an approved ledger" width="768" height="512" decoding="async" fetchpriority="high" />
         </picture>
       </section>
 
@@ -289,17 +294,17 @@ function exportStageHTML(result: ProcessResult): string {
       <button data-export="recipe"><span aria-hidden="true">{ }</span><strong>Export recipe JSON</strong><small>Readable, diffable, rerunnable</small></button>
       <button data-export="report"><span aria-hidden="true">#</span><strong>Export checksum report</strong><small>SHA-256 file evidence</small></button>
     </div>
-    <div class="save-panel"><div><h3>Keep this recipe on this device</h3><p>${state.licenseActive ? "Field Kit active: save an unlimited recipe library." : "The free workspace includes one saved recipe. Field Kit unlocks an unlimited library."}</p></div><button class="primary" data-action="save-recipe">Save recipe</button></div>
+    <div class="save-panel"><div><h3>Keep this recipe on this device</h3><p>${state.licenseActive ? "Field Kit active: save an unlimited recipe library." : BILLING_ENABLED ? "The free workspace includes one saved recipe. Field Kit unlocks an unlimited library." : "The free workspace includes one saved recipe. Export recipe JSON for any additional recipes."}</p></div><button class="primary" data-action="save-recipe">Save recipe</button></div>
     <div class="stage-actions"><button data-stage="4">Back to review</button><button class="danger-button" data-action="reset">Start a new import</button></div>
   </section>`;
 }
 
 function licenseHTML(): string {
-  return `<section class="license-section" aria-labelledby="license-title"><div><p class="eyebrow">One-time field kit</p><h2 id="license-title">Carry a bigger recipe book.</h2><p>The complete transform, review, and export workflow is free. A <strong>$29 one-time purchase</strong> unlocks an unlimited saved recipe library on this device.</p><ul><li>No subscription</li><li>No cloud data upload</li><li>Restore on another device with your license</li></ul></div><div class="license-card">
-    ${state.licenseActive ? `<p class="license-active"><span aria-hidden="true">✓</span><strong>Field Kit active</strong></p><p>Your saved recipe library is unlimited.</p>` : `<a class="primary buy-link" href="${BILLING_BASE}/api/v1/products/${PRODUCT}/checkout">Buy Field Kit · $29 once</a><p class="hint">Secure hosted checkout. Sociobot / Dodo is the merchant of record.</p>`}
+  return `<section class="license-section" aria-labelledby="license-title"><div><p class="eyebrow">${BILLING_ENABLED ? "One-time field kit" : "Local recipe library"}</p><h2 id="license-title">Carry a bigger recipe book.</h2><p>${BILLING_ENABLED ? `The complete transform, review, and export workflow is free. A <strong>$29 one-time purchase</strong> unlocks an unlimited saved recipe library on this device.` : "The complete transform, review, and export workflow is free. Field Kit purchases are not open yet; one local recipe slot plus unlimited JSON recipe exports and imports remain available."}</p><ul><li>No subscription</li><li>No cloud data upload</li><li>Portable recipe JSON stays free</li></ul></div><div class="license-card">
+    ${state.licenseActive ? `<p class="license-active"><span aria-hidden="true">✓</span><strong>Field Kit active</strong></p><p>Your saved recipe library is unlimited.</p>` : BILLING_ENABLED ? `<a class="primary buy-link" href="${BILLING_BASE}/api/v1/products/${PRODUCT}/checkout">Buy Field Kit · $29 once</a><p class="hint">Secure hosted checkout. Sociobot / Dodo is the merchant of record.</p>` : `<p class="license-notice"><strong>Purchases are not open.</strong><br />Keep using the complete free workflow; no checkout is currently offered.</p>`}
     <label for="license-token">Have a license? Paste it here</label><div class="inline-form"><input id="license-token" type="password" autocomplete="off" /><button data-action="restore-license">Verify</button></div>
     ${state.licenseNotice ? `<p class="license-notice" role="status">${escapeHTML(state.licenseNotice)}</p>` : ""}
-    <p class="legal-note">Purchase subject to our <a href="/terms/">terms</a> and <a href="/privacy/">privacy policy</a>. Refunds are handled by the merchant of record.</p>
+    <p class="legal-note">${BILLING_ENABLED ? `Purchase subject to our <a href="/terms/">terms</a> and <a href="/privacy/">privacy policy</a>. Refunds are handled by the merchant of record.` : `See our <a href="/terms/">terms</a> and <a href="/privacy/">privacy policy</a>.`}</p>
   </div></section>`;
 }
 
@@ -408,6 +413,7 @@ function loadExample(): void {
   state.mappings = state.mappings.map((mapping) => ({ ...mapping, source: sourceByTarget[mapping.target] ?? null, transform: mapping.target === "email" ? "lower" : mapping.target === "start_date" ? "date-dmy" : mapping.target === "region_code" ? "upper" : "trim", required: ["customer_id", "name", "email", "start_date"].includes(mapping.target) }));
   state.dedupeKeys = ["customer_id"];
   state.recipeName = "Customer migration";
+  state.recipeCreatedAt = new Date().toISOString();
   state.stage = 2;
   state.message = "Example loaded. Inspect the human-reviewed mappings, then continue.";
   state.error = "";
@@ -416,7 +422,7 @@ function loadExample(): void {
 
 async function persist(): Promise<void> {
   try {
-    await saveWorkspace({ source: state.source, targetHeaders: state.targetHeaders, mappings: state.mappings, dedupeKeys: state.dedupeKeys, recipeName: state.recipeName, savedAt: new Date().toISOString() });
+    await saveWorkspace({ source: state.source, targetHeaders: state.targetHeaders, mappings: state.mappings, dedupeKeys: state.dedupeKeys, recipeName: state.recipeName, recipeCreatedAt: state.recipeCreatedAt, savedAt: new Date().toISOString() });
   } catch {
     state.message = "This browser blocked local persistence. The current tab still works; export the recipe before closing.";
   }
@@ -459,7 +465,9 @@ async function exportFile(kind: string): Promise<void> {
 
 async function saveCurrentRecipe(): Promise<void> {
   if (!state.licenseActive && state.recipes.length >= 1 && !state.recipes.some((recipe) => recipe.name === state.recipeName)) {
-    state.licenseNotice = "The free recipe slot is in use. Export this recipe or unlock Field Kit for an unlimited local library.";
+    state.licenseNotice = BILLING_ENABLED
+      ? "The free recipe slot is in use. Export this recipe or unlock Field Kit for an unlimited local library."
+      : "The free recipe slot is in use. Export this recipe as JSON, then import it whenever you need it.";
     document.querySelector(".license-section")?.scrollIntoView({ behavior: "smooth" }); render(); return;
   }
   const recipe = recipeFromState();
@@ -469,7 +477,9 @@ async function saveCurrentRecipe(): Promise<void> {
 }
 
 function applyRecipe(recipe: Recipe): void {
+  recipe = validateRecipe(recipe);
   state.recipeName = recipe.name;
+  state.recipeCreatedAt = recipe.createdAt;
   state.targetHeaders = recipe.targetHeaders;
   state.mappings = recipe.mappings.map((mapping) => ({ ...mapping }));
   state.dedupeKeys = [...recipe.dedupeKeys];
@@ -486,7 +496,7 @@ async function removeRecipe(name: string): Promise<void> {
 async function resetWorkspace(): Promise<void> {
   if (!confirm(`Start a new import and clear the active workspace? Saved recipes will remain.`)) return;
   await clearWorkspace();
-  state.source = null; state.targetHeaders = []; state.mappings = []; state.dedupeKeys = []; state.recipeName = "Untitled import"; state.stage = 1; state.message = "New workspace ready."; state.error = ""; render(); scrollToWorkbench();
+  state.source = null; state.targetHeaders = []; state.mappings = []; state.dedupeKeys = []; state.recipeName = "Untitled import"; state.recipeCreatedAt = new Date().toISOString(); state.stage = 1; state.message = "New workspace ready."; state.error = ""; render(); scrollToWorkbench();
 }
 
 function showError(error: unknown): void {
@@ -536,7 +546,7 @@ async function bootstrap(): Promise<void> {
     const [workspace, recipes] = await Promise.all([loadWorkspace(), listRecipes()]);
     state.recipes = recipes;
     if (workspace) {
-      state.source = workspace.source; state.targetHeaders = workspace.targetHeaders; state.mappings = workspace.mappings; state.dedupeKeys = workspace.dedupeKeys; state.recipeName = workspace.recipeName;
+      state.source = workspace.source; state.targetHeaders = workspace.targetHeaders; state.mappings = workspace.mappings; state.dedupeKeys = workspace.dedupeKeys; state.recipeName = workspace.recipeName; state.recipeCreatedAt = workspace.recipeCreatedAt ?? new Date(workspace.savedAt).toISOString();
       state.message = `Restored your local workspace from ${new Date(workspace.savedAt).toLocaleString()}.`;
     }
   } catch {

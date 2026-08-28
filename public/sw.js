@@ -1,4 +1,4 @@
-const VERSION = "itl-shell-v5";
+const VERSION = "itl-shell-build";
 const SHELL = [
   "/",
   "/offline.html",
@@ -6,13 +6,7 @@ const SHELL = [
   "/icon.svg",
   "/icon-192.png",
   "/icon-512.png",
-  "/assets/app.js",
-  "/assets/app.css",
-  "/assets/hero-customs-desk-768.avif",
-  "/assets/hero-customs-desk-1536.avif",
-  "/assets/hero-customs-desk-1536.webp",
-  "/assets/hero-customs-desk-768.webp",
-  "/assets/hero-customs-desk-768.jpg",
+  "__BUILD_ASSETS__",
   "/privacy/",
   "/terms/"
 ];

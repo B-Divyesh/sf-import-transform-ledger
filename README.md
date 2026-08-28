@@ -21,10 +21,11 @@ Live product: <https://import-transform-ledger.sociobot.in>
 - Persists the active workspace and recipe library in IndexedDB and works
   offline after the first successful visit.
 
-The full transform and export workflow is free. The optional $29 one-time Field
-Kit license unlocks an unlimited local saved-recipe library. Checkout and
-license verification use the Sociobot billing API; no payment provider is
-embedded in the app.
+The full transform and export workflow is free. A one-time Field Kit license is
+designed to unlock an unlimited local saved-recipe library, but the product does
+not advertise or link checkout until its production billing entry is enabled.
+Checkout and license verification use the Sociobot billing API; no payment
+provider is embedded in the app.
 
 ## Develop
 
@@ -56,10 +57,13 @@ Deploy the contents of `dist/` as a static site with `index.html` at the root.
 `public/privacy/` and `public/terms/` become direct static routes. The service
 worker expects the app at the origin root.
 
-Staging uses `https://pilot-api.sociobot.in` by default. Set
-`VITE_BILLING_BASE=https://api.sociobot.in` for production builds after the
-factory registers the slug. No numeric product ID or payment secret belongs in
-this repository.
+The production API origin defaults to `https://api.sociobot.in`. Checkout is
+fail-closed: ordinary builds show that purchases are not open and render no buy
+link. Only after the factory confirms that the slug is registered and its
+checkout responds successfully should it build with
+`VITE_BILLING_ENABLED=true`. Use `VITE_BILLING_BASE` only to target an approved
+alternate Sociobot environment. No numeric product ID or payment secret belongs
+in this repository.
 
 ## Privacy and architecture
 

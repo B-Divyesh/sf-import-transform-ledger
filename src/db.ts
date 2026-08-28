@@ -6,6 +6,7 @@ export interface WorkspaceRecord {
   mappings: FieldMapping[];
   dedupeKeys: string[];
   recipeName: string;
+  recipeCreatedAt?: string;
   savedAt: string;
 }
 

@@ -5,14 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "build": "npm run typecheck && vite build && node scripts/finalize-build.mjs",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "vitest run tests/core.test.ts",
+    "test": "vitest run tests/core.test.ts tests/release-config.test.ts",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.58.2",
+    "@types/node": "22.18.3",
     "typescript": "5.9.2",
     "vite": "7.3.6",
     "vitest": "3.2.7"

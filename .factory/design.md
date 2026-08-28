@@ -24,7 +24,7 @@ token dark treatment that changes their meaning.
 | Ink | `#172822` | Primary text; near-black green, 13.9:1 on paper |
 | Quiet ink | `#52635B` | Secondary text; 5.7:1 on paper |
 | Lapis | `#164E63` | Primary actions and focus; 7.6:1 with white |
-| Vermilion | `#C6422F` | Registration marks and destructive emphasis |
+| Vermilion | `#A93628` | Registration marks and editorial emphasis; 5.5:1 on paper |
 | Mustard | `#D8A928` | Selection fields and editorial highlights |
 | Moss | `#2E6B4F` | Valid/ready status |
 | Reject | `#9F2F32` | Errors and rejected rows |
@@ -95,4 +95,3 @@ factory Azure OpenAI image deployment (`factory-image`) on 2026-08-28 using the
 prompt above. The selected PNG source and prompt sidecar live in `assets/src/`;
 the shipped WebP is optimized to no more than 300 KB. Generated imagery is
 disclosed in the footer.
-

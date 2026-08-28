@@ -1,6 +1,6 @@
 # Import Transform Ledger — repair handoff
 
-## Status: READY
+## Status: DEPLOYED
 
 Repair work for verifier report commit `3bb3f8f624ce179bf9ae1feaa031114cbf141b8f`
 against candidate `601a48117cbeab7be48dbdb724a4b1c8115b142e` is complete.
@@ -99,7 +99,35 @@ scripts.
 
 ## Deployment and remaining external action
 
-Deploy with the work-order configuration:
+Commit `ebe67b0` was pushed to `origin/main` and its default production build
+was deployed with the work-order static deployment configuration to
+<https://import-transform-ledger.sociobot.in>.
+
+Live verification after edge propagation:
+
+- Live `index.html`, JavaScript, and CSS match local `dist/` byte-for-byte.
+  Representative SHA-256 values: index
+  `559c847d0c02b3928d17469afcbd046532425b9b30a66b7d962451f31e5d412c`, JS
+  `465e143af9d59ef47881a48f3278c053b1d683d24493a5e739ac0921b5a600d4`, CSS
+  `f7bf33524636d8a365fcaad2fa7358bde42a7fee2d54f152cd7254201d9d72b6`.
+- Root, service worker, manifest, JS, AVIF, privacy, and terms return HTTP 200.
+  Manifest is `application/manifest+json`; AVIF is `image/avif`; assets are
+  one-year immutable; service worker is no-store. CSP, Permissions-Policy,
+  frame denial, `nosniff`, referrer policy, and one-year HSTS are present.
+- Live worker URL verification reports title/lang, one `h1`, `main`, image alt,
+  labelled buttons, desktop/390px renders, and zero console/page errors.
+- Live Chromium reports zero manifest and installability errors. A controlled
+  offline reload succeeds, the page remains exactly 390px wide at the mobile
+  viewport, and the free workflow makes no cross-origin requests.
+- Live axe reruns on home and transformed review report zero violations. Live
+  Lighthouse mobile: 100 Performance, 100 Accessibility, 100 Best Practices,
+  100 SEO; FCP 0.9s, LCP 1.1s, TBT 10ms, CLS 0, 58KiB transfer.
+- A live recipe/report download pair independently verifies to the same
+  SHA-256: `008bc5b38e505591c8d0a4e58d66bad7a7eacff4963cc23d3df695d649625180`.
+- The deployed page contains no buy link and visibly states that purchases are
+  not open.
+
+Re-deploy command:
 
 ```sh
 npm ci && npm test && npm run build

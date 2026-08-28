@@ -1,5 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+
+async function expectNoSeriousViolations(page: Page): Promise<void> {
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations.filter((item) => ["serious", "critical"].includes(item.impact ?? ""))).toEqual([]);
+}
 
 test("runs the example import through review and export", async ({ page }) => {
   const errors: string[] = [];
@@ -10,11 +15,13 @@ test("runs the example import through review and export", async ({ page }) => {
   await expect(page.locator("main")).toHaveCount(1);
   await page.getByRole("button", { name: "Try the example" }).click();
   await expect(page.getByRole("heading", { name: "Map the ledger columns" })).toBeVisible();
+  await expectNoSeriousViolations(page);
   await page.getByRole("button", { name: "Set row rules" }).click();
   await page.getByRole("button", { name: "Review transformed rows" }).click();
   await expect(page.getByText("Duplicate of source row 3 by customer_id")).toBeVisible();
   await expect(page.getByText(/not a valid day\/month\/year date/)).toBeVisible();
   await expect(page.getByText("2", { exact: true }).first()).toBeVisible();
+  await expectNoSeriousViolations(page);
   await page.getByRole("button", { name: "Prepare handoff" }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: /Export recipe JSON/ }).click();
@@ -48,6 +55,5 @@ test("stacks key controls at a 390px mobile viewport", async ({ page }) => {
 
 test("has no serious or critical accessibility violations", async ({ page }) => {
   await page.goto("/");
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations.filter((item) => ["serious", "critical"].includes(item.impact ?? ""))).toEqual([]);
+  await expectNoSeriousViolations(page);
 });

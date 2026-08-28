@@ -295,7 +295,7 @@ function exportStageHTML(result: ProcessResult): string {
 }
 
 function licenseHTML(): string {
-  return `<section class="license-section" aria-labelledby="license-title"><div><p class="eyebrow">One-time field kit</p><h2 id="license-title">Carry a bigger recipe book.</h2><p>The complete transform, review, and export workflow is free. A <strong>$29 one-time purchase</strong> unlocks unlimited saved recipes and extended local run history on this device.</p><ul><li>No subscription</li><li>No cloud data upload</li><li>Restore on another device with your license</li></ul></div><div class="license-card">
+  return `<section class="license-section" aria-labelledby="license-title"><div><p class="eyebrow">One-time field kit</p><h2 id="license-title">Carry a bigger recipe book.</h2><p>The complete transform, review, and export workflow is free. A <strong>$29 one-time purchase</strong> unlocks an unlimited saved recipe library on this device.</p><ul><li>No subscription</li><li>No cloud data upload</li><li>Restore on another device with your license</li></ul></div><div class="license-card">
     ${state.licenseActive ? `<p class="license-active"><span aria-hidden="true">✓</span><strong>Field Kit active</strong></p><p>Your saved recipe library is unlimited.</p>` : `<a class="primary buy-link" href="${BILLING_BASE}/api/v1/products/${PRODUCT}/checkout">Buy Field Kit · $29 once</a><p class="hint">Secure hosted checkout. Sociobot / Dodo is the merchant of record.</p>`}
     <label for="license-token">Have a license? Paste it here</label><div class="inline-form"><input id="license-token" type="password" autocomplete="off" /><button data-action="restore-license">Verify</button></div>
     ${state.licenseNotice ? `<p class="license-notice" role="status">${escapeHTML(state.licenseNotice)}</p>` : ""}
@@ -527,9 +527,11 @@ async function bootstrap(): Promise<void> {
   const license = new URL(location.href).searchParams.get("license");
   if (license) {
     localStorage.setItem(LICENSE_KEY, license);
+    state.licenseActive = true;
     const clean = new URL(location.href); clean.searchParams.delete("license"); history.replaceState({}, "", clean);
     state.licenseNotice = "Purchase received. Verifying your license…";
   }
+  render();
   try {
     const [workspace, recipes] = await Promise.all([loadWorkspace(), listRecipes()]);
     state.recipes = recipes;

@@ -1,4 +1,4 @@
-const VERSION = "itl-shell-v2";
+const VERSION = "itl-shell-v5";
 const SHELL = [
   "/",
   "/offline.html",
@@ -9,6 +9,8 @@ const SHELL = [
   "/assets/app.js",
   "/assets/app.css",
   "/assets/hero-customs-desk-768.avif",
+  "/assets/hero-customs-desk-1536.avif",
+  "/assets/hero-customs-desk-1536.webp",
   "/assets/hero-customs-desk-768.webp",
   "/assets/hero-customs-desk-768.jpg",
   "/privacy/",

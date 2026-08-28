@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://import-transform-ledger.sociobot.in/sitemap.xml

@@ -4,6 +4,8 @@
 
 - Implementation and deployed artifact: `8bf83ab` (`fix: add isolated demo and
   verifiable release routes`)
+- Documentation/report record: `2604f85cdf6ddac42ea079a24a366d8775273d3b`
+  (created after deployment; it contains no product artifact change)
 - Previous review/report baseline: `3075a19`
 - Deployment: 2026-09-05 UTC to
   <https://import-transform-ledger.sociobot.in>

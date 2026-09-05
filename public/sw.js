@@ -1,6 +1,8 @@
 const VERSION = "itl-shell-build";
 const SHELL = [
   "/",
+  "/demo",
+  "/404.html",
   "/offline.html",
   "/manifest.webmanifest",
   "/icon.svg",

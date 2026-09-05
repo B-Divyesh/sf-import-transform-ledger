@@ -16,6 +16,7 @@ import {
   type TransformKind,
 } from "./core";
 import {
+  clearAllData,
   clearWorkspace,
   deleteRecipe,
   listRecipes,
@@ -23,6 +24,7 @@ import {
   saveRecipe,
   saveRun,
   saveWorkspace,
+  type StorageScope,
 } from "./db";
 import { LICENSE_VERIFY_COOLDOWN_MS, retryAfterMs, verificationDelayMs, waitMessage } from "./license";
 
@@ -36,6 +38,9 @@ const VERDICT_KEY = `${LICENSE_KEY}:verdict`;
 const VERIFY_ATTEMPT_KEY = `${LICENSE_KEY}:verify-attempt`;
 const OFFLINE_MESSAGE = "You are offline. The workspace, recipes, transforms, and exports remain available.";
 const app = document.querySelector<HTMLDivElement>("#app")!;
+const initialURL = new URL(location.href);
+const DEMO_MODE = initialURL.pathname === "/demo" || initialURL.pathname === "/demo/" || initialURL.searchParams.get("demo") === "1";
+const STORAGE_SCOPE: StorageScope = DEMO_MODE ? "demo" : "real";
 let verificationInFlight = false;
 
 interface State {
@@ -131,21 +136,24 @@ function render(): void {
       </a>
       <nav aria-label="Utility navigation">
         <span class="local-mark ${state.online ? "" : "local-mark-offline"}"><i aria-hidden="true"></i> ${state.online ? "Runs locally" : "Offline · tools ready"}</span>
+        <a href="/demo" ${DEMO_MODE ? 'aria-current="page"' : ""}>Demo</a>
         <a href="/privacy/">Privacy</a>
         <a href="/terms/">Terms</a>
       </nav>
     </header>
+    ${DEMO_MODE ? demoBannerHTML() : ""}
     <main id="main" tabindex="-1">
       <section class="hero ${state.source ? "hero-compact" : ""}" aria-labelledby="page-title">
         <div class="hero-copy">
-          <p class="eyebrow">A private customs desk for unruly data</p>
-          <h1 id="page-title">Make every CSV import explain itself.</h1>
-          <p class="lede">Map columns, apply deterministic cleanup, isolate every reject, and hand off a rerunnable recipe. Nothing leaves your browser.</p>
+          <p class="eyebrow">CSV import preparation</p>
+          <h1 id="page-title">Clean and document CSV imports</h1>
+          <p class="lede">For implementation consultants and operations staff preparing supplier or legacy data.</p>
           ${state.source ? `<p class="return-note">Working on <strong>${escapeHTML(state.source.fileName)}</strong> · ${state.source.rows.length.toLocaleString()} rows</p>` : `
             <div class="hero-actions">
-              <button class="primary" data-action="jump-load">Start an import</button>
-              <button class="text-button" data-action="example">Try the example</button>
+              <div class="hero-action"><a class="primary" href="/demo">Try it with sample data</a><small>Loads five rows with mappings, rejects, and exports.</small></div>
+              <button class="text-button" data-action="jump-load">Start a real import</button>
             </div>`}
+          <ul class="hero-facts" aria-label="Product facts"><li>CSV data stays on this device.</li><li>Works offline after the first visit.</li><li>Transform, review, and export are free.</li></ul>
         </div>
         <picture class="hero-art">
           <source type="image/avif" srcset="/assets/hero-customs-desk-768.1346799d.avif 768w, /assets/hero-customs-desk-1536.b13e4f66.avif 1536w" sizes="(max-width: 760px) 100vw, 52vw" />
@@ -184,15 +192,27 @@ function render(): void {
         </div>
       </section>
 
+      ${explainerHTML()}
       ${licenseHTML()}
     </main>
     <footer>
-      <p><strong>Import Transform Ledger</strong> · Local-first field utility by Sociobot.</p>
-      <p>Editorial artwork was generated for this product. <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></p>
+      <p><strong>Import Transform Ledger</strong> · Local CSV mapping, cleanup, and rejection records.</p>
+      <p>Artwork was generated for this product. <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · Built by Param Factory · Build v1.0.0</p>
     </footer>
     <div id="update-toast" class="toast" hidden><span>An offline update is ready.</span><button data-action="update">Reload</button></div>
   `;
   bindEvents();
+}
+
+function demoBannerHTML(): string {
+  return `<aside class="demo-banner" aria-label="Demo status"><div><strong>Demo — sample data, nothing is saved to your real workspace.</strong><span>Reset or leave the demo at any time.</span></div><div><button data-action="reset-demo">Reset demo</button><button class="primary" data-action="start-real">Start for real</button></div></aside>`;
+}
+
+function explainerHTML(): string {
+  return `<section class="product-notes" aria-label="How the import workflow works">
+    <section aria-labelledby="how-title"><p class="eyebrow">How it works</p><h2 id="how-title">Prepare a CSV import in three steps</h2><ol class="how-list"><li><strong>Load files.</strong><span>Choose a source CSV and the target columns it must match.</span></li><li><strong>Review rules.</strong><span>Map fields, choose cleanup rules, and check every rejected row.</span></li><li><strong>Export files.</strong><span>Download ready rows, rejected rows, a recipe, and a checksum report.</span></li></ol></section>
+    <section class="limits-note" aria-labelledby="limits-title"><p class="eyebrow">Privacy and limits</p><h2 id="limits-title">What this tool does not do</h2><p>It does not connect to business systems, upload CSV rows, or guess sensitive mappings. You choose every mapping and review the output before importing it elsewhere.</p><a href="/privacy/">Read the privacy policy</a></section>
+  </section>`;
 }
 
 function savedRecipesHTML(): string {
@@ -211,7 +231,7 @@ function stageHTML(result: ProcessResult): string {
 
 function loadStageHTML(): string {
   return `<section class="stage" aria-labelledby="stage-title">
-    <header class="stage-heading"><div><p class="step-kicker">Stage 01</p><h2 id="stage-title">Set both sides of the crossing</h2></div><p>Load a source export and a target template. Only the target header row is used.</p></header>
+    <header class="stage-heading"><div><p class="step-kicker">Stage 01</p><h2 id="stage-title">Load source and target CSV files</h2></div><p>Load a source export and a target template. Only the target header row is used.</p></header>
     <div class="load-grid">
       <div class="file-well ${state.source ? "has-file" : ""}">
         <span class="well-number">A</span><h3>Source data</h3><p>The rows you need to clean and reshape.</p>
@@ -231,14 +251,14 @@ function loadStageHTML(): string {
         ${state.targetHeaders.length ? `<div class="file-receipt"><strong>${state.targetHeaders.length} target columns</strong><span>${state.targetHeaders.map(escapeHTML).join(" · ")}</span></div>` : ""}
       </div>
     </div>
-    <div class="stage-actions"><button class="text-button" data-action="example">Use safe example data</button><button class="primary" data-action="continue" ${state.source && state.targetHeaders.length ? "" : "disabled"}>Compare columns</button></div>
+    <div class="stage-actions">${DEMO_MODE ? `<button class="text-button" data-action="reset-demo">Reset sample data</button>` : `<a class="text-button" href="/demo">Try it with sample data</a>`}<button class="primary" data-action="continue" ${state.source && state.targetHeaders.length ? "" : "disabled"}>Compare columns</button></div>
     <div class="recipe-import"><div><strong>Rerunning a handoff?</strong><p>Load a version 1 recipe JSON, then choose the next source export.</p></div><input id="recipe-file" type="file" accept=".json,application/json" /><label for="recipe-file">Import recipe JSON</label></div>
   </section>`;
 }
 
 function mapStageHTML(): string {
   return `<section class="stage" aria-labelledby="stage-title">
-    <header class="stage-heading"><div><p class="step-kicker">Stage 02</p><h2 id="stage-title">Map the ledger columns</h2></div><p>${state.mappings.filter((mapping) => mapping.source || mapping.defaultValue).length} of ${state.mappings.length} targets supplied. Matching names are preselected, never guessed semantically.</p></header>
+    <header class="stage-heading"><div><p class="step-kicker">Stage 02</p><h2 id="stage-title">Map target columns</h2></div><p>${state.mappings.filter((mapping) => mapping.source || mapping.defaultValue).length} of ${state.mappings.length} targets supplied. Only matching names are preselected; sensitive mappings are never guessed.</p></header>
     <div class="mapping-head" aria-hidden="true"><span>Target</span><span>Source</span><span>Deterministic cleanup</span><span>Policy</span></div>
     <div class="mapping-list">${state.mappings.map((mapping, index) => mappingRowHTML(mapping, index)).join("")}</div>
     <div class="stage-actions"><button data-stage="1">Back to files</button><button class="primary" data-action="continue">Set row rules</button></div>
@@ -256,7 +276,7 @@ function mappingRowHTML(mapping: FieldMapping, index: number): string {
 
 function rulesStageHTML(): string {
   return `<section class="stage" aria-labelledby="stage-title">
-    <header class="stage-heading"><div><p class="step-kicker">Stage 03</p><h2 id="stage-title">Choose what makes a row unique</h2></div><p>Repeated keys are rejected after cleanup. The first occurrence stays in the ready file.</p></header>
+    <header class="stage-heading"><div><p class="step-kicker">Stage 03</p><h2 id="stage-title">Set duplicate rules</h2></div><p>Repeated keys are rejected after cleanup. The first occurrence stays in the ready file.</p></header>
     <fieldset class="rule-sheet"><legend>Duplicate key</legend><p>Select one or more target columns. Combined fields form one exact-match key.</p>
       <div class="choice-grid">${state.targetHeaders.map((header) => `<label class="choice"><input type="checkbox" data-dedupe="${escapeHTML(header)}" ${state.dedupeKeys.includes(header) ? "checked" : ""} /><span>${escapeHTML(header)}</span></label>`).join("")}</div>
       <p class="hint">Leave all unchecked to skip duplicate detection. Blank key values are never treated as duplicates.</p>
@@ -269,7 +289,7 @@ function rulesStageHTML(): string {
 function reviewStageHTML(result: ProcessResult): string {
   const sample = result.accepted.slice(0, 8);
   return `<section class="stage" aria-labelledby="stage-title">
-    <header class="stage-heading"><div><p class="step-kicker">Stage 04</p><h2 id="stage-title">Inspect the crossing</h2></div><p>A live preview from the full file. Edit the recipe and the ledger recalculates immediately.</p></header>
+    <header class="stage-heading"><div><p class="step-kicker">Stage 04</p><h2 id="stage-title">Review transformed rows</h2></div><p>A live preview from the full file. Edit the recipe and the ledger recalculates immediately.</p></header>
     <div class="metric-strip"><div><strong>${result.total}</strong><span>input rows</span></div><div class="metric-good"><strong>${result.accepted.length}</strong><span>ready</span></div><div class="metric-bad"><strong>${result.rejected.length}</strong><span>rejected</span></div><div><strong>${result.duplicates}</strong><span>duplicates</span></div></div>
     <section class="preview-section" aria-labelledby="ready-heading"><div class="section-line"><h3 id="ready-heading">Ready rows</h3><span>Showing ${Math.min(8, sample.length)} of ${result.accepted.length}</span></div>${dataTable(state.targetHeaders, sample, "No rows are ready yet. Resolve the rejection reasons below.")}</section>
     <section class="preview-section rejects" aria-labelledby="reject-heading"><div class="section-line"><h3 id="reject-heading">Rejection ledger</h3><span>Every excluded row is accounted for</span></div>${rejectTable(result)}</section>
@@ -289,7 +309,7 @@ function rejectTable(result: ProcessResult): string {
 
 function exportStageHTML(result: ProcessResult): string {
   return `<section class="stage" aria-labelledby="stage-title">
-    <header class="stage-heading"><div><p class="step-kicker">Stage 05</p><h2 id="stage-title">Stamp the handoff</h2></div><p>Export the clean rows, every rejection, a diffable recipe, and a checksum report.</p></header>
+    <header class="stage-heading"><div><p class="step-kicker">Stage 05</p><h2 id="stage-title">Export import files</h2></div><p>Export the clean rows, every rejection, a diffable recipe, and a checksum report.</p></header>
     <div class="receipt"><div class="receipt-stamp"><span>READY</span><strong>${result.accepted.length}</strong><small>rows cleared</small></div><div><h3>${escapeHTML(state.recipeName)}</h3><p>${result.total} input · ${result.accepted.length} ready · ${result.rejected.length} rejected · ${result.duplicates} duplicates</p><p class="hint">Generated locally ${new Date().toLocaleString()}</p></div></div>
     <label for="recipe-name">Recipe name</label><input id="recipe-name" class="name-input" value="${escapeHTML(state.recipeName)}" />
     <div class="export-grid">
@@ -304,7 +324,7 @@ function exportStageHTML(result: ProcessResult): string {
 }
 
 function licenseHTML(): string {
-  return `<section class="license-section" aria-labelledby="license-title"><div><p class="eyebrow">${BILLING_ENABLED ? "One-time field kit" : "Local recipe library"}</p><h2 id="license-title">Carry a bigger recipe book.</h2><p>${BILLING_ENABLED ? `The complete transform, review, and export workflow is free. A <strong>$29 one-time purchase</strong> unlocks an unlimited saved recipe library on this device.` : "The complete transform, review, and export workflow is free. Field Kit purchases are not open yet; one local recipe slot plus unlimited JSON recipe exports and imports remain available."}</p><ul><li>No subscription</li><li>No cloud data upload</li><li>Portable recipe JSON stays free</li></ul></div><div class="license-card">
+  return `<section class="license-section" aria-labelledby="license-title"><div><p class="eyebrow">${BILLING_ENABLED ? "One-time Field Kit" : "Local recipe library"}</p><h2 id="license-title">Save more local recipes</h2><p>${BILLING_ENABLED ? `The complete transform, review, and export workflow is free. A <strong>$29 one-time purchase</strong> unlocks an unlimited saved recipe library on this device.` : "The complete transform, review, and export workflow is free. Field Kit purchases are not open yet. One local recipe slot and unlimited JSON recipe exports and imports remain available."}</p><ul><li>No subscription</li><li>No cloud data upload</li><li>Portable recipe JSON stays free</li></ul></div><div class="license-card">
     ${state.licenseActive ? `<p class="license-active"><span aria-hidden="true">✓</span><strong>Field Kit active</strong></p><p>Your saved recipe library is unlimited.</p>` : BILLING_ENABLED ? `<a class="primary buy-link" href="${BILLING_BASE}/api/v1/products/${PRODUCT}/checkout">Buy Field Kit · $29 once</a><p class="hint">Secure hosted checkout. Sociobot / Dodo is the merchant of record.</p>` : `<p class="license-notice"><strong>Purchases are not open.</strong><br />Keep using the complete free workflow; no checkout is currently offered.</p>`}
     ${BILLING_ENABLED ? `<label for="license-token">Have a license? Paste it here</label><div class="inline-form"><input id="license-token" type="password" autocomplete="off" /><button data-action="restore-license" ${verificationInFlight ? "disabled" : ""}>${verificationInFlight ? "Verifying…" : "Verify"}</button></div>` : ""}
     ${state.licenseNotice ? `<p class="license-notice" role="status">${escapeHTML(state.licenseNotice)}</p>` : ""}
@@ -318,7 +338,8 @@ function bindEvents(): void {
     if (canVisit(stage)) { state.stage = stage; state.error = ""; render(); scrollToWorkbench(); }
   }));
   document.querySelector('[data-action="jump-load"]')?.addEventListener("click", () => { state.stage = 1; render(); scrollToWorkbench(); });
-  document.querySelectorAll('[data-action="example"]').forEach((button) => button.addEventListener("click", loadExample));
+  document.querySelectorAll('[data-action="reset-demo"]').forEach((button) => button.addEventListener("click", resetDemo));
+  document.querySelector('[data-action="start-real"]')?.addEventListener("click", startForReal);
   document.querySelector('[data-action="continue"]')?.addEventListener("click", () => { state.stage = Math.min(5, state.stage + 1); state.error = ""; persist(); render(); scrollToWorkbench(); });
   document.querySelector<HTMLSelectElement>("#encoding")?.addEventListener("change", (event) => { state.encoding = (event.currentTarget as HTMLSelectElement).value as Encoding; });
   document.querySelector<HTMLInputElement>("#source-file")?.addEventListener("change", (event) => loadSource((event.currentTarget as HTMLInputElement).files?.[0]));
@@ -394,12 +415,12 @@ async function importRecipeFile(file?: File): Promise<void> {
   } catch (error) { showError(error instanceof SyntaxError ? new Error("The recipe file is not valid JSON. Choose an exported recipe JSON file.") : error); }
 }
 
-function setManualTarget(): void {
+async function setManualTarget(): Promise<void> {
   const input = document.querySelector<HTMLInputElement>("#target-manual");
   const headers = input?.value.split(",").map((item) => item.trim()).filter(Boolean) ?? [];
   if (!headers.length) { showError(new Error("Enter at least one target column, separated by commas.")); return; }
   if (new Set(headers).size !== headers.length) { showError(new Error("Target columns must have unique names.")); return; }
-  setTargetHeaders(headers); persist(); render();
+  setTargetHeaders(headers); await persist(); render();
 }
 
 function setTargetHeaders(headers: string[]): void {
@@ -409,7 +430,7 @@ function setTargetHeaders(headers: string[]): void {
   state.error = "";
 }
 
-function loadExample(): void {
+function loadExample(stage = 2): void {
   state.source = createDataSet("Legacy ID,Full Name,Email,Start Date,Region\r\nC-100,  Ana Torres  ,ANA@EXAMPLE.COM,31/01/2026,North\r\nC-101,Marcus Lee,marcus@example.com,14/02/2026,South\r\nC-101,Marcus Lee,marcus@example.com,14/02/2026,South\r\nC-102,Missing Date,noah@example.com,31/31/2026,West\r\nC-103,,sara@example.com,09/03/2026,East\r\n", "supplier-export.csv", "utf-8");
   state.targetHeaders = ["customer_id", "name", "email", "start_date", "region_code"];
   state.mappings = initialMappings(state.source.headers, state.targetHeaders);
@@ -418,15 +439,15 @@ function loadExample(): void {
   state.dedupeKeys = ["customer_id"];
   state.recipeName = "Customer migration";
   state.recipeCreatedAt = new Date().toISOString();
-  state.stage = 2;
-  state.message = "Example loaded. Inspect the human-reviewed mappings, then continue.";
+  state.stage = stage;
+  state.message = stage >= 4 ? "Sample data is ready to review." : "Sample data loaded. Inspect the reviewed mappings, then continue.";
   state.error = "";
   persist(); render(); scrollToWorkbench();
 }
 
 async function persist(): Promise<void> {
   try {
-    await saveWorkspace({ source: state.source, targetHeaders: state.targetHeaders, mappings: state.mappings, dedupeKeys: state.dedupeKeys, recipeName: state.recipeName, recipeCreatedAt: state.recipeCreatedAt, savedAt: new Date().toISOString() });
+    await saveWorkspace({ source: state.source, targetHeaders: state.targetHeaders, mappings: state.mappings, dedupeKeys: state.dedupeKeys, recipeName: state.recipeName, recipeCreatedAt: state.recipeCreatedAt, savedAt: new Date().toISOString() }, STORAGE_SCOPE);
   } catch {
     state.message = "This browser blocked local persistence. The current tab still works; export the recipe before closing.";
   }
@@ -461,7 +482,7 @@ async function exportFile(kind: string): Promise<void> {
       sha256: { normalizedSourceCsv: await sha256(sourceCopy), readyCsv: await sha256(output), rejectionCsv: await sha256(rejects), recipeJson: await sha256(recipeJSON(recipeFromState())) },
     };
     download(`${slug}-checksum-report.json`, JSON.stringify(report, null, 2) + "\n", "application/json");
-    await saveRun({ id: crypto.randomUUID(), ...report });
+    await saveRun({ id: crypto.randomUUID(), ...report }, STORAGE_SCOPE);
   }
   state.message = `Exported ${kind === "output" ? "ready CSV" : kind === "rejects" ? "rejection ledger" : kind === "recipe" ? "recipe JSON" : "checksum report"}.`;
   state.error = ""; render();
@@ -475,8 +496,8 @@ async function saveCurrentRecipe(): Promise<void> {
     document.querySelector(".license-section")?.scrollIntoView({ behavior: "smooth" }); render(); return;
   }
   const recipe = recipeFromState();
-  await saveRecipe(recipe);
-  state.recipes = await listRecipes();
+  await saveRecipe(recipe, STORAGE_SCOPE);
+  state.recipes = await listRecipes(STORAGE_SCOPE);
   state.message = `Saved “${recipe.name}” on this device.`; render();
 }
 
@@ -494,13 +515,34 @@ function applyRecipe(recipe: Recipe): void {
 
 async function removeRecipe(name: string): Promise<void> {
   if (!confirm(`Delete the saved recipe “${name}” from this device? Export it first if you need a backup.`)) return;
-  await deleteRecipe(name); state.recipes = await listRecipes(); state.message = `Deleted “${name}”.`; render();
+  await deleteRecipe(name, STORAGE_SCOPE); state.recipes = await listRecipes(STORAGE_SCOPE); state.message = `Deleted “${name}”.`; render();
 }
 
 async function resetWorkspace(): Promise<void> {
   if (!confirm(`Start a new import and clear the active workspace? Saved recipes will remain.`)) return;
-  await clearWorkspace();
+  await clearWorkspace(STORAGE_SCOPE);
   state.source = null; state.targetHeaders = []; state.mappings = []; state.dedupeKeys = []; state.recipeName = "Untitled import"; state.recipeCreatedAt = new Date().toISOString(); state.stage = 1; state.message = "New workspace ready."; state.error = ""; render(); scrollToWorkbench();
+}
+
+async function resetDemo(): Promise<void> {
+  if (!DEMO_MODE) { location.assign("/demo"); return; }
+  await clearAllData("demo");
+  state.recipes = [];
+  loadExample(4);
+  state.message = "Sample data reset. Your real workspace was not changed.";
+  await persist();
+  render();
+}
+
+async function startForReal(): Promise<void> {
+  if (DEMO_MODE) {
+    await clearAllData("demo");
+    location.assign("/");
+    return;
+  }
+  state.stage = 1;
+  render();
+  scrollToWorkbench();
 }
 
 function showError(error: unknown): void {
@@ -564,13 +606,16 @@ async function bootstrap(): Promise<void> {
   } else if (license) {
     const clean = new URL(location.href); clean.searchParams.delete("license"); history.replaceState({}, "", clean);
   }
+  updateRouteMetadata();
   render();
   try {
-    const [workspace, recipes] = await Promise.all([loadWorkspace(), listRecipes()]);
+    const [workspace, recipes] = await Promise.all([loadWorkspace(STORAGE_SCOPE), listRecipes(STORAGE_SCOPE)]);
     state.recipes = recipes;
     if (workspace) {
       state.source = workspace.source; state.targetHeaders = workspace.targetHeaders; state.mappings = workspace.mappings; state.dedupeKeys = workspace.dedupeKeys; state.recipeName = workspace.recipeName; state.recipeCreatedAt = workspace.recipeCreatedAt ?? new Date(workspace.savedAt).toISOString();
-      state.message = `Restored your local workspace from ${new Date(workspace.savedAt).toLocaleString()}.`;
+      state.message = DEMO_MODE ? "Restored sample data in this demo." : `Restored your local workspace from ${new Date(workspace.savedAt).toLocaleString()}.`;
+    } else if (DEMO_MODE) {
+      loadExample(4);
     }
   } catch {
     state.message = "Local storage is unavailable. Export the recipe before closing this tab.";
@@ -579,6 +624,17 @@ async function bootstrap(): Promise<void> {
   render();
   if (BILLING_ENABLED) verifyLicense(Boolean(license));
   registerServiceWorker();
+}
+
+function updateRouteMetadata(): void {
+  if (!DEMO_MODE) return;
+  document.title = "Demo — Import Transform Ledger";
+  document.querySelector('link[rel="canonical"]')?.setAttribute("href", "https://import-transform-ledger.sociobot.in/demo");
+  document.querySelector('meta[name="description"]')?.setAttribute("content", "Try a sample CSV import with reviewed mappings, rejects, and exports.");
+  document.querySelector('meta[property="og:title"]')?.setAttribute("content", "Demo — Import Transform Ledger");
+  document.querySelector('meta[property="og:description"]')?.setAttribute("content", "Try a sample CSV import with reviewed mappings, rejects, and exports.");
+  document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", "Demo — Import Transform Ledger");
+  document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", "Try a sample CSV import with reviewed mappings, rejects, and exports.");
 }
 
 function registerServiceWorker(): void {

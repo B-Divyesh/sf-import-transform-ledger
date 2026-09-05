@@ -1,8 +1,4 @@
 {
-  "navigationFallback": {
-    "rewrite": "/index.html",
-    "exclude": ["/assets/*", "/*.{css,js,png,jpg,svg,avif,webp,ico,woff2,json,webmanifest,txt,xml,wasm}"]
-  },
   "mimeTypes": {
     ".avif": "image/avif",
     ".webmanifest": "application/manifest+json"
@@ -21,6 +17,12 @@
       "headers": { "Cache-Control": "public, max-age=3600, must-revalidate" }
     }
   ],
+  "responseOverrides": {
+    "404": {
+      "rewrite": "/404.html",
+      "statusCode": 404
+    }
+  },
   "globalHeaders": {
     "Content-Security-Policy": "default-src 'self'; base-uri 'self'; connect-src 'self' https://api.sociobot.in; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' blob: data:; manifest-src 'self'; object-src 'none'; script-src 'self'; style-src 'self'; worker-src 'self'",
     "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=()",

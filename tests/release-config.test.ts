@@ -8,6 +8,7 @@ describe("static release policy", () => {
       mimeTypes: Record<string, string>;
       routes: Array<{ route: string; headers: Record<string, string> }>;
       globalHeaders: Record<string, string>;
+      responseOverrides: Record<string, { rewrite: string; statusCode: number }>;
     };
 
     expect(config.mimeTypes[".avif"]).toBe("image/avif");
@@ -18,6 +19,7 @@ describe("static release policy", () => {
     expect(config.globalHeaders["Permissions-Policy"]).toContain("camera=()");
     expect(config.globalHeaders["Strict-Transport-Security"]).toContain("max-age=31536000");
     expect(config.globalHeaders["X-Content-Type-Options"]).toBe("nosniff");
+    expect(config.responseOverrides["404"]).toEqual({ rewrite: "/404.html", statusCode: 404 });
   });
 
   it("uses content-addressed public assets for immutable caching", async () => {

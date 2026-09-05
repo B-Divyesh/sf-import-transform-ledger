@@ -95,3 +95,7 @@ factory Azure OpenAI image deployment (`factory-image`) on 2026-08-28 using the
 prompt above. The selected PNG source and prompt sidecar live in `assets/src/`;
 the shipped WebP is optimized to no more than 300 KB. Generated imagery is
 disclosed in the footer.
+
+The social preview `public/assets/social-import-ledger-1200x630.85805a4b.jpg`
+is a hand-cropped 1200×630 derivative of that selected original. It contains no
+added text, logos, people, or third-party material.

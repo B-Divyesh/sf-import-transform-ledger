@@ -1,99 +1,64 @@
-# Import Transform Ledger — repair 3 handoff
+# Import Transform Ledger — verification 5 handoff
 
-## Status: release-ready
+## Status: verification failed
 
-- Implementation and deployed artifact: `8bf83ab` (`fix: add isolated demo and
-  verifiable release routes`)
-- Documentation/report record: `2604f85cdf6ddac42ea079a24a366d8775273d3b`
-  (created after deployment; it contains no product artifact change)
-- Previous review/report baseline: `3075a19`
-- Deployment: 2026-09-05 UTC to
-  <https://import-transform-ledger.sociobot.in>
-- This handoff is a documentation-only follow-up to the implementation commit;
-  no product image was rebuilt after the deployment candidate.
+Independent verification on 2026-09-06 found three acceptance issues. The
+implementation remains `8bf83abaf06637189a40f385459b4bf9814e4fe6`; the
+documentation baseline before this report was
+`83d91f201262afa96cc458d03f66fbbc50a714f9`. Product code was not changed.
 
-## Job, audience, and first action
+See [verification-5.md](verification-5.md) for complete evidence and exact
+reproduction steps.
 
-The product maps, cleans, validates, and documents CSV imports with a reusable
-recipe and a rejection record. It is for implementation consultants and
-operations staff preparing supplier or legacy data for business systems.
+## Open work
 
-On fresh desktop and 390 px phone contexts, before scrolling, the page states:
+1. Clear the demo database on every visible exit from demo mode. The wordmark
+   currently leaves `/demo` without discarding a modified demo workspace.
+2. Raise every visible phone link target to at least 44×44 px. Small targets
+   remain in the workspace, legal pages, footer, and 404 page.
+3. Add declared outcome claims for demo discard, IndexedDB run-report storage,
+   and the absence of uploaded/exported CSV files from Cache Storage.
 
-- Job: **Clean and document CSV imports**
-- Audience: implementation consultants and operations staff
-- First action: **Try it with sample data**; it loads five rows with mappings,
-  rejects, and exports.
+Finding count: **3**. Untested public claim count: **3**. Verdict: **FAIL**.
 
-Both fresh live contexts showed these elements. The phone page had matching
-`scrollWidth` and `clientWidth` of 390 px.
+## What passed
 
-## Repairs completed
+- Clean `npm ci`, 17 unit/config tests, lint, typecheck, build, 29 browser
+  checks, all 19 declared claim commands, and the dependency audit.
+- The complete free sample and real workflows, checksum match, invalid-input
+  recovery, 25,000-row boundary check, real/demo data separation, and offline
+  reload.
+- Fresh desktop and 390 px phone structure, keyboard focus, reduced motion,
+  settled Axe scans, route titles, legal pages, security headers, and the
+  designed expected HTTP 404.
+- All 22 public `dist/` files match live HTTPS byte-for-byte.
+- Lighthouse mobile: 100 Performance, 100 Accessibility, 100 Best Practices,
+  and 100 SEO; FCP 0.9 s, LCP 1.1 s, TBT 0 ms, CLS 0.
+- Product-specific rate-limit probe: one 200 and 79 429 responses; every 429
+  included `Retry-After`.
 
-| Review finding | Disposition | Evidence |
-| --- | --- | --- |
-| ITL-R1-001 isolated demo | Resolved | `/demo` and `?demo=1` load a five-row sample in the separate `import-transform-ledger:demo` IndexedDB database. The banner has Reset demo and Start for real. `@claim:demo-isolation` creates a real workspace, resets/exits demo, then confirms the real row remains. [.factory/demo.md](demo.md) documents the boundary. |
-| ITL-R1-002 claims ledger | Resolved | [.factory/claims.json](claims.json) lists 19 public claims. Each has exactly one `@claim:` outcome test. All 19 declared individual commands were run against the built artifact. |
-| ITL-R1-003 plain first screen | Resolved | The headline, audience sentence, sample action help, and three privacy/offline/free facts meet the first-screen contract. [.factory/copy-audit.md](copy-audit.md) records sentence counts and product terminology. |
-| ITL-R1-004 real 404 | Resolved | `staticwebapp.config.json` uses a 404 response override to the styled `404.html`. Live `/not-a-real-page` returned HTTP 404 with title, h1, and workspace recovery link. |
-| ITL-R1-005 route metadata and skeleton | Resolved | Home, demo, privacy, terms, and 404 now have titles and appropriate metadata; legal pages use the shared wordmark/header/footer pattern; sitemap includes `/demo`; a 1200×630 product-art social image and Apple touch icon are shipped. |
+## Verification commands
 
-Earlier findings remain covered: checksum recipe hashes match the downloaded
-bytes; invalid rows cannot claim a dedupe key; corrupt recipes and uneven rows
-are rejected; mobile targets remain 44 px; response policies and offline mobile
-state are present; and the closed billing build exposes no invalid checkout.
-The external license API’s observed 429/Retry-After result remains recorded in
-verification 4; no backend is part of this static product.
+From a clean checkout:
 
-## Verification
+```sh
+npm ci
+npm test
+npm run lint
+npm run typecheck
+npm run build
+npm run test:e2e
+npm audit --audit-level=high
+```
 
-Started with the documented clean setup: `npm ci` completed with 0
-vulnerabilities.
+Run every `test` value in `.factory/claims.json` individually. Use
+`scripts/verify-url.sh` against `/`, `/demo`, `/privacy/`, `/terms/`, and an
+unknown route. The implementation has no backend or installed CLI artifact.
 
-| Command or check | Result |
-| --- | --- |
-| `npm test` | PASS — 17 unit/config tests |
-| `npm run lint` | PASS |
-| `npm run typecheck` | PASS |
-| `npm run build` | PASS — `dist/` produced |
-| `npm run test:e2e` | PASS — 29 Playwright checks, including all claims |
-| Each of the 19 `claims.json` `test` commands | PASS individually against the built artifact |
-| `npm audit --audit-level=high` | PASS — 0 vulnerabilities |
-| `scripts/verify-url.sh` on local `/`, `/demo`, legal routes, and 404 | PASS — one title, one h1, one main, `lang=en`, image alts, no actionable console errors |
-| Playwright Axe checks | PASS — no serious or critical violations on home/demo and legal routes |
-| Link crawl | PASS — all same-origin destinations returned 200; mail links and in-page anchors were explicit |
-| Local Lighthouse mobile | 100 Performance, 100 Accessibility, 100 Best Practices, 100 SEO; FCP 1.2 s, LCP 1.5 s, TBT 20 ms, CLS 0 |
+## Evidence files
 
-The standalone Axe CLI could not find a Chrome binary in this worker even when
-given the Playwright browser path. The repository’s Playwright Axe integration
-ran successfully and is the applicable alternate check.
-
-Build output: JavaScript 39,246 B (12,442 B gzip), CSS 19,678 B (4,888 B
-gzip), no font payload, and mobile hero AVIF 25,767 B. All are within the PWA
-budgets.
-
-## Live checks
-
-The static deployment completed successfully. A recursive comparison of every
-public `dist/` file except the deployment control file
-`staticwebapp.config.json` against the HTTPS origin was byte-identical.
-
-Fresh HTTPS checks passed for `/`, `/demo`, `/privacy/`, `/terms/`, and the
-expected HTTP 404. No console or page errors occurred. The live demo displayed
-the persistent banner and realistic populated output: 5 input, 2 ready, 3
-rejected, and 1 duplicate. Reset demo reported that real data was unchanged. A
-fresh real workspace with `LIVE-42` remained available after leaving the demo.
-
-The service-worker claim suite uses a dedicated browser context, verifies an
-offline reload after first visit, and verifies the update toast after serving a
-new worker. The privacy claim records requests through the demo flow and finds
-same-origin GET requests only; it also checks that no cookie is set.
-
-## Known dependency and next step
-
-Field Kit remains an honest closed offer until the factory billing-registration
-operator enables it. The free transform, review, export, and recipe JSON paths
-remain complete. The public offer metadata is recorded at
-`/work/.evidence/billing-offer.json`; it contains no credential. The catalog
-description is at [.factory/catalog-description.txt](catalog-description.txt)
-and copied to `/work/.evidence/catalog-description.txt`.
+- Repository report: `.factory/verification-5.md`
+- Copied report: `/work/.evidence/qa-report.md`
+- Machine result: `/work/.evidence/qa-result.json`
+- Desktop, phone, demo, and 200% text screenshots: `/work/.evidence/itl-verify5-*.png`
+- Lighthouse JSON: `/work/.evidence/itl-verify5-lighthouse.json`

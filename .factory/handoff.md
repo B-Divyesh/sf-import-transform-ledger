@@ -6,6 +6,8 @@ Independent verification on 2026-09-06 found three acceptance issues. The
 implementation remains `8bf83abaf06637189a40f385459b4bf9814e4fe6`; the
 documentation baseline before this report was
 `83d91f201262afa96cc458d03f66fbbc50a714f9`. Product code was not changed.
+The verification report was committed as
+`192a0cda8fbf76986dfc65b65f5e3fed357fffe0`.
 
 See [verification-5.md](verification-5.md) for complete evidence and exact
 reproduction steps.
